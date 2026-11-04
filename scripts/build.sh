@@ -138,4 +138,9 @@ CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build \
 rm -f rsrc*.syso wails_windows_*.syso build/windows/info.generated.json build/windows/winres.generated.json
 
 echo "==> 产物验收"
+# 版本信息校验依赖 pefile；CI 里通常已装，本地缺失时自动补一次
+python3 -c "import pefile" 2>/dev/null || {
+  echo "    未检测到 pefile，尝试安装"
+  python3 -m pip install --quiet pefile 2>/dev/null || echo "    安装失败，版本信息校验将不可用"
+}
 python3 scripts/exe_peek.py "$OUT" --expect-version "$VERSION" || exit 1

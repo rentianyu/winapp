@@ -126,6 +126,8 @@ def main():
     fails = []
     if info.get("error"):
         fails.append(info["error"])
+    if pefile is None:
+        fails.append("缺少 pefile 模块，无法读取版本信息（pip install pefile）")
     if info.get("subsystem") not in (None, "WINDOWS_GUI"):
         fails.append(f"子系统不是 GUI（{info.get('subsystem')}），双击会弹黑窗")
     if args.expect_arch and info.get("machine") != args.expect_arch:

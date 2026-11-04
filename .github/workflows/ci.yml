@@ -74,6 +74,9 @@ jobs:
       - name: 安装 go-winres（Linux 上生成 Windows 资源）
         run: go install github.com/tc-hib/go-winres@latest
 
+      - name: 安装 PE 校验依赖
+        run: python3 -m pip install --quiet pefile
+
       - name: 交叉编译 Windows exe
         run: bash scripts/build.sh --skip-frontend --version="0.1.${{ github.run_number }}"
 
