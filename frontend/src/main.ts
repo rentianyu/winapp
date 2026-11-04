@@ -1,5 +1,5 @@
 import './style.css'
-import { bridge } from './bridge'
+import { bridge, initBridge } from './bridge'
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T
 
@@ -198,6 +198,7 @@ input.addEventListener('keydown', (ev) => {
 
 void (async () => {
   refreshSizes()
+  await initBridge() // 探测真实后端；纯浏览器里保持 mock
   const info = await bridge.getInfo()
   verEl.textContent = `v${info.version}${info.commit && info.commit !== 'none' ? ` (${info.commit.slice(0, 7)})` : ''}`
   if (bridge.kind === 'mock') {

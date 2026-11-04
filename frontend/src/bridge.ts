@@ -55,12 +55,6 @@ export interface ToolboxBridge {
 
 const SVC = 'github.com/rentianyu/winapp/internal/services.ToolboxService'
 
-/** 判断是否真的跑在 Wails 里（runtime 会注入 window._wails.environment） */
-function inWails(): boolean {
-  const w = window as unknown as { _wails?: { environment?: unknown } }
-  return typeof w._wails?.environment !== 'undefined'
-}
-
 /* ------------------------------- 真实实现 ------------------------------- */
 
 const realBridge: ToolboxBridge = {
@@ -156,4 +150,24 @@ const mockBridge: ToolboxBridge = {
   },
 }
 
-export const bridge: ToolboxBridge = inWails() ? realBridge : mockBridge
+/**
+ * 当前生效的实现。默认 mock，initBridge() 探测成功后切到 realBridge。
+ *
+ * 为什么不在模块加载时同步判断：
+ *  Wails v3 注入的 window._wails 字段在不同版本/平台下不一定有 environment，
+ *  按字段猜会误判（真机里也走 mock）。直接试调一次后端最可靠。
+ */
+export let bridge: ToolboxBridge = mockBridge
+
+/** 在应用启动时调用一次，确定用真实后端还是 mock。 */
+export async function initBridge(): Promise<ToolboxBridge> {
+  try {
+    const info = await Call.ByName(`${SVC}.GetInfo`)
+    if (info && typeof info === 'object' && 'version' in (info as object)) {
+      bridge = realBridge
+    }
+  } catch {
+    // 纯浏览器里没有 Wails runtime，保持 mock
+  }
+  return bridge
+}
