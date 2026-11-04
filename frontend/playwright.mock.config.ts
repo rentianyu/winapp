@@ -22,9 +22,13 @@ export default defineConfig({
     screenshot: 'only-on-failure',
   },
   webServer: {
-    command: 'npx vite preview --port 4173 --strictPort',
+    // 必须显式 --host 127.0.0.1：vite 默认监听 localhost，在 IPv6 优先的环境里
+    // 会只绑 ::1，导致 Playwright 连 127.0.0.1 一直超时
+    command: 'pnpm exec vite preview --host 127.0.0.1 --port 4173 --strictPort',
     url: 'http://127.0.0.1:4173',
-    reuseExistingServer: true,
-    timeout: 30_000,
+    reuseExistingServer: !process.env.CI,
+    timeout: 90_000,
+    stdout: 'pipe',
+    stderr: 'pipe',
   },
 })
