@@ -90,16 +90,20 @@ def peek(path):
 
     if pefile:
         try:
-            pe = pefile.PE(data=data, fast_load=True)
-            pe.parse_data_directories(
-                directories=[pefile.DIRECTORY_ENTRY["IMAGE_DIRECTORY_ENTRY_RESOURCE"],
-                             pefile.DIRECTORY_ENTRY["IMAGE_DIRECTORY_ENTRY_SECURITY"]]
-            )
+            # 注意：不能用 fast_load=True + 手动 parse_data_directories(...)，
+            # 那种写法在某些 PE 结构下不会填充 FileInfo，导致版本信息读成空。
+            pe = pefile.PE(data=data)
             vi = parse_version_info(pe)
             info["version_info"] = vi
-            info["signed"] = bool(getattr(pe, "OPTIONAL_HEADER", None)
-                                  and pe.OPTIONAL_HEADER.DATA_DIRECTORY[
-                                      pefile.DIRECTORY_ENTRY["IMAGE_DIRECTORY_ENTRY_SECURITY"]].Size > 0)
+            info["sections_list"] = [
+                s.Name.rstrip(b"\x00").decode("ascii", "ignore") for s in pe.sections
+            ]
+            info["has_rsrc"] = ".rsrc" in info["sections_list"]
+            info["signed"] = bool(
+                pe.OPTIONAL_HEADER.DATA_DIRECTORY[
+                    pefile.DIRECTORY_ENTRY["IMAGE_DIRECTORY_ENTRY_SECURITY"]
+                ].Size > 0
+            )
             pe.close()
         except Exception as e:
             info["pefile_error"] = str(e)
@@ -144,6 +148,8 @@ def main():
         print(f"文件      : {info['path']}")
         print(f"体积      : {info['size_mb']} MB ({info['size']} B)")
         print(f"PE        : {info.get('pe_type')} / {info.get('machine')} / {info.get('subsystem')} / {info.get('sections')} 节")
+        if info.get("has_rsrc") is not None:
+            print(f"资源节    : {'.rsrc 存在' if info['has_rsrc'] else '缺 .rsrc（图标/版本信息未嵌入）'}")
         print(f"FileVer   : {fv or '(无)'}")
         print(f"ProductVer: {vi.get('ProductVersion', '(无)')}")
         print(f"产品名    : {vi.get('ProductName', '(无)')}")
