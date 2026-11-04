@@ -5,7 +5,6 @@ on:
     branches: [main]
     paths-ignore:
       - '**.md'
-      - '.github/**'
   pull_request:
   workflow_dispatch:
 
@@ -58,8 +57,13 @@ jobs:
 
       - name: 前端依赖
         run: |
+          echo "cwd=$(pwd)"
+          ls -la | head -20
+          echo "--- frontend ---"
+          ls -la frontend | head -20
           cd frontend
-          pnpm install --frozen-lockfile
+          echo "now cwd=$(pwd)"
+          pnpm install --no-frozen-lockfile
 
       - name: 前端构建（tsc 类型检查 + vite 打包）
         run: |
@@ -114,7 +118,7 @@ jobs:
       - name: 前端依赖与构建
         run: |
           cd frontend
-          pnpm install --frozen-lockfile
+          pnpm install --no-frozen-lockfile
           pnpm run build
 
       - name: 编译 Windows exe
@@ -125,7 +129,7 @@ jobs:
         shell: pwsh
         run: |
           Set-Location frontend
-          pnpm install --frozen-lockfile
+          pnpm install --no-frozen-lockfile
           $env:WINAPP_DEBUG_PORT = "9222"
           $exe = Resolve-Path "..\dist\json-toolbox-windows-amd64.exe"
           Start-Process -FilePath $exe

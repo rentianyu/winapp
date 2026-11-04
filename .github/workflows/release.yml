@@ -57,7 +57,7 @@ jobs:
       - name: 前端依赖与构建
         run: |
           cd frontend
-          pnpm install --frozen-lockfile
+          pnpm install --no-frozen-lockfile
           pnpm run build
 
       - name: 编译 exe（含图标/清单/版本信息）
