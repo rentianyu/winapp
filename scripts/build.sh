@@ -76,7 +76,11 @@ info['ProductVersion'] = v
 out = pathlib.Path('build/windows/winres.generated.json')
 out.write_text(json.dumps(d, ensure_ascii=False, indent=2), encoding='utf-8')
 PY
-go-winres make --in build/windows/winres.generated.json --out rsrc --arch amd64
+rm -f rsrc*.syso
+go-winres make --in build/windows/winres.generated.json --out rsrc --arch amd64 || {
+  echo "❌ go-winres make 失败" >&2; exit 1; }
+echo "--- 生成的资源文件 ---"
+ls -la rsrc*.syso 2>/dev/null || { echo "❌ 未生成 syso，版本信息将缺失" >&2; exit 1; }
 
 echo "==> 编译（GOOS=windows GOARCH=amd64 CGO_ENABLED=0）"
 mkdir -p dist
