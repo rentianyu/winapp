@@ -1,0 +1,152 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - '**.md'
+      - '.github/**'
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  GO_VERSION: '1.26'
+  NODE_VERSION: '22'
+  PNPM_VERSION: '12'
+
+jobs:
+  # ------------------------------------------------------------------
+  # L0 + L1：纯逻辑单测 / 跨平台类型检查 / 前端构建 / 前端 E2E（mock）
+  # 全在 Ubuntu 上，2 分钟内跑完，不需要任何 Windows 资源
+  # ------------------------------------------------------------------
+  lint-test:
+    name: L0+L1 单测与前端
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Go 单测（纯逻辑，-race）
+        run: go test ./internal/... -race -count=1
+
+      - name: Windows 目标类型检查（不需要 Windows 机器）
+        run: GOOS=windows GOARCH=amd64 go vet ./...
+
+      - name: 确认 core 无平台依赖（Linux 上也能 vet）
+        run: go vet ./internal/...
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+
+      - name: 前端依赖
+        working-directory: frontend
+        run: pnpm install --frozen-lockfile
+
+      - name: 前端构建（tsc 类型检查 + vite 打包）
+        working-directory: frontend
+        run: pnpm run build
+
+      - name: 安装 Playwright（仅 Chromium）
+        working-directory: frontend
+        run: npx playwright install --with-deps chromium
+
+      - name: 前端 E2E（mock bridge）
+        working-directory: frontend
+        run: pnpm run e2e:mock
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: mock-e2e-screenshots
+          path: frontend/e2e-report/
+          if-no-files-found: warn
+
+  # ------------------------------------------------------------------
+  # L2：真实 Windows 构建 + 真机 WebView2 E2E + 截图
+  # ------------------------------------------------------------------
+  build-windows:
+    name: L2 构建与真机 E2E
+    runs-on: windows-latest
+    needs: lint-test
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+
+      - name: 安装 go-winres（生成图标/清单/版本资源）
+        run: go install github.com/tc-hib/go-winres@latest
+
+      - name: 前端依赖与构建
+        working-directory: frontend
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm run build
+
+      - name: 编译 Windows exe
+        shell: bash
+        run: bash scripts/build.sh --skip-frontend --version="0.1.${{ github.run_number }}"
+
+      - name: 真机 E2E（Playwright over CDP 驱动 WebView2）
+        working-directory: frontend
+        shell: pwsh
+        run: |
+          pnpm install --frozen-lockfile
+          $env:WINAPP_DEBUG_PORT = "9222"
+          $exe = Resolve-Path "..\dist\json-toolbox-windows-amd64.exe"
+          Start-Process -FilePath $exe
+          $ready = $false
+          for ($i = 0; $i -lt 40; $i++) {
+            Start-Sleep -Seconds 1
+            try {
+              $r = Invoke-WebRequest -Uri "http://127.0.0.1:9222/json/version" -UseBasicParsing -TimeoutSec 2
+              if ($r.StatusCode -eq 200) { $ready = $true; Write-Host "CDP 就绪（第 $i 秒）"; break }
+            } catch { }
+          }
+          if (-not $ready) { throw "WebView2 CDP 端口在 40 秒内未就绪" }
+          pnpm run e2e:win
+
+      - name: 关闭应用
+        if: always()
+        shell: pwsh
+        run: Get-Process -Name json-toolbox -ErrorAction SilentlyContinue | Stop-Process -Force
+
+      - name: 上传 exe 与截图
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: windows-build
+          path: |
+            dist/*.exe
+            frontend/e2e-report/
+          if-no-files-found: warn

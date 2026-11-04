@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>JSON Toolbox</title>
+  </head>
+  <body>
+    <header class="bar">
+      <span class="brand">JSON Toolbox</span>
+      <span class="sep"></span>
+      <button id="btn-format" class="primary" title="Ctrl+Enter">格式化</button>
+      <button id="btn-minify">压缩</button>
+      <button id="btn-check">校验</button>
+      <label class="field">
+        缩进
+        <select id="indent">
+          <option value="2">2</option>
+          <option value="4">4</option>
+        </select>
+      </label>
+      <span class="grow"></span>
+      <button id="btn-update" title="查询 GitHub 上的最新版本">检查更新</button>
+      <button id="btn-sample">示例</button>
+      <button id="btn-copy">复制结果</button>
+      <button id="btn-clear">清空</button>
+    </header>
+
+    <main class="split">
+      <section class="pane">
+        <div class="pane-head">
+          <span>输入</span>
+          <span id="in-size" class="meta">0 B</span>
+        </div>
+        <textarea id="input" spellcheck="false" autocomplete="off"
+          placeholder="在此粘贴 JSON，Ctrl+Enter 格式化"></textarea>
+      </section>
+      <section class="pane">
+        <div class="pane-head">
+          <span>输出</span>
+          <span id="out-size" class="meta">—</span>
+        </div>
+        <pre id="output" tabindex="0"></pre>
+      </section>
+    </main>
+
+    <footer class="status">
+      <span id="status-text">就绪</span>
+      <span class="grow"></span>
+      <span id="stats" class="meta"></span>
+      <span id="ver" class="meta"></span>
+    </footer>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

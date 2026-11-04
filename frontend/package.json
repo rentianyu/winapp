@@ -1,0 +1,22 @@
+{
+  "name": "winapp-frontend",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "e2e:mock": "playwright test --config=playwright.mock.config.ts",
+    "e2e:win": "playwright test --config=playwright.webview.config.ts"
+  },
+  "dependencies": {
+    "@wailsio/runtime": "3.0.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.64.1",
+    "typescript": "^5.9.0",
+    "vite": "^8.3.5"
+  },
+  "packageManager": "pnpm@12.16.1"
+}

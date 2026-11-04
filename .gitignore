@@ -1,0 +1,25 @@
+# 构建产物
+dist/
+*.exe
+*.syso
+
+# 前端：dist 由 vite 生成，仓库里只保留一个 .gitkeep
+# （main.go 的 //go:embed all:frontend/dist 要求该目录必须存在）
+frontend/dist/*
+!frontend/dist/.gitkeep
+frontend/node_modules/
+frontend/e2e-report/
+frontend/.vite/
+frontend/test-results/
+
+# Go
+bin/
+*.test
+coverage.out
+
+# 编辑器/系统
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.log
