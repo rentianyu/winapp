@@ -166,14 +166,37 @@ bash scripts/build.sh --version=0.1.0
 
 ---
 
-## 七、踩过的坑（省你时间）
+## 七、踩过的坑（都是真踩过的，省你时间）
 
-1. **`wails3` 在 Linux 上编译要 GTK4**（`gtk4` / `webkitgtk-6.0` pkg-config）。所以本项目**构建不依赖 wails3**，只有本地 `wails3 dev` 需要。
-2. **新版 WebView2 Runtime 不再从 `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS` 读 `--remote-debugging-port`**，必须在代码里通过 `AdditionalBrowserArgs` 传（本项目的做法）。
-3. **`go-winres --no-suffix` 静默失败**：不生成文件、退出码 0。
-4. **图标 >256px 直接报错**，需要先缩放。
-5. **Windows 专属代码不隔离**，`go vet` 在 Linux 上会报 `undefined: syscall.NewLazyDLL`（本项目 `internal/platform` 就是这么拆出来的）。
-6. **`/sandbox/workspace` 是 virtiofs**，在里面装 `node_modules` 比本地盘慢一个数量级 —— `build.sh` 会先复制到 `/tmp` 再装。
+**构建相关**
+
+1. **`wails3` 在 Linux 上编译要 GTK4**（`gtk4` / `webkitgtk-6.0` pkg-config），沙箱通常装不上。所以本项目**构建不依赖 wails3**（用 `go-winres` + 原生 `go build`），CLI 只留给本地 `wails3 dev`。
+2. **`go-winres --no-suffix` 静默失败**：不生成文件、退出码还是 0。别加这个参数。
+3. **图标必须 ≤256×256**，1024 会报 `image size too big`。
+4. **`//go:embed all:frontend/dist` 要求目录必须存在**，否则 `go vet` / `go build` 直接失败。本仓库提交了 `frontend/dist/.gitkeep` 占位，clone 后能直接编译。
+5. **Windows 专属代码不隔离**，`go vet` 在 Linux 上会报 `undefined: syscall.NewLazyDLL`。`internal/platform/` 的 build tag 就是为这个拆的。
+
+**验收脚本相关（最坑的一类）**
+
+6. **`pefile` 用 `fast_load=True` + 手动 `parse_data_directories(...)` 读不到 `FileInfo`**，版本信息显示为空 —— 而 exe 本身完全正常。本项目因此**连续 4 轮 CI 误判构建失败**，实际是验收脚本的 bug。正确写法是 `pefile.PE(data=data)`（默认全解析）。
+
+   > 教训：验收脚本自身必须先在一份已知正确的产物上验证通过，再接入流水线。
+
+7. **Windows runner 的 Python 默认 cp1252/gbk 编码**，脚本 print 中文直接 `UnicodeEncodeError`。`exe_peek.py` 里做了 `sys.stdout.reconfigure(encoding="utf-8")`，`build.sh` 里设 `PYTHONIOENCODING=utf-8`。
+
+**CI 相关**
+
+8. **runner 预装 Go 只有 1.24**，Wails v3 要求 1.26+，必须 `setup-go` 显式指定。
+9. **`working-directory: frontend` 在 pnpm 步骤上没生效**（表现为 `ERR_PNPM_NO_LOCKFILE`）。改成 `run: | cd frontend; pnpm ...` 显式切目录后正常。
+10. **`Inno Setup 6.7.1` 不自带简体中文语言包**。本项目把 `ChineseSimplified.isl` 随仓库放在 `build/windows/languages/`，并用 ISPP 的 `#if FileExists(...)` 做缺失回退。
+11. **构建放 ubuntu、E2E 放 windows** 比全塞进 windows 更快更稳：ubuntu 启动快、没有 Windows 路径/编码坑；windows job 只负责「跑 exe + 真实 WebView2 断言」。
+
+**运行时相关**
+
+12. **新版 WebView2 Runtime 不再从 `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS` 读 `--remote-debugging-port`**，必须在代码里通过 `WindowsOptions.AdditionalBrowserArgs` 传（`main.go` 已处理，靠 `WINAPP_DEBUG_PORT` 开关）。
+13. **判断「是否在 Wails 里」不能靠猜 `window._wails.environment`** —— 真机上该字段可能不存在，会误判成浏览器 mock 模式。本项目改成「真的调一次后端，成功即认为在 Wails 里」（`initBridge()`）。
+14. **公开分发的未签名 exe 会被 SmartScreen 拦**，首次运行需「更多信息 → 仍要运行」。彻底解决只能买代码签名证书（OV/EV）。
+15. **`/sandbox/workspace` 是 virtiofs**，在里面装 `node_modules` 比本地盘慢一个数量级 —— `build.sh` 会先复制到 `/tmp` 再装。
 
 ---
 
