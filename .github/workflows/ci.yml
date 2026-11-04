@@ -57,20 +57,24 @@ jobs:
           cache-dependency-path: frontend/pnpm-lock.yaml
 
       - name: 前端依赖
-        working-directory: frontend
-        run: pnpm install --frozen-lockfile
+        run: |
+          cd frontend
+          pnpm install --frozen-lockfile
 
       - name: 前端构建（tsc 类型检查 + vite 打包）
-        working-directory: frontend
-        run: pnpm run build
+        run: |
+          cd frontend
+          pnpm run build
 
       - name: 安装 Playwright（仅 Chromium）
-        working-directory: frontend
-        run: npx playwright install --with-deps chromium
+        run: |
+          cd frontend
+          npx playwright install --with-deps chromium
 
       - name: 前端 E2E（mock bridge）
-        working-directory: frontend
-        run: pnpm run e2e:mock
+        run: |
+          cd frontend
+          pnpm run e2e:mock
 
       - uses: actions/upload-artifact@v4
         if: always()
@@ -108,8 +112,8 @@ jobs:
         run: go install github.com/tc-hib/go-winres@latest
 
       - name: 前端依赖与构建
-        working-directory: frontend
         run: |
+          cd frontend
           pnpm install --frozen-lockfile
           pnpm run build
 
@@ -118,9 +122,9 @@ jobs:
         run: bash scripts/build.sh --skip-frontend --version="0.1.${{ github.run_number }}"
 
       - name: 真机 E2E（Playwright over CDP 驱动 WebView2）
-        working-directory: frontend
         shell: pwsh
         run: |
+          Set-Location frontend
           pnpm install --frozen-lockfile
           $env:WINAPP_DEBUG_PORT = "9222"
           $exe = Resolve-Path "..\dist\json-toolbox-windows-amd64.exe"

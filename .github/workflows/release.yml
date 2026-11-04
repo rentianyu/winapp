@@ -55,8 +55,8 @@ jobs:
         run: go install github.com/tc-hib/go-winres@latest
 
       - name: 前端依赖与构建
-        working-directory: frontend
         run: |
+          cd frontend
           pnpm install --frozen-lockfile
           pnpm run build
 
