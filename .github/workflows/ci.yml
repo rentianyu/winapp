@@ -22,11 +22,11 @@ env:
 
 jobs:
   # ------------------------------------------------------------------
-  # L0 + L1：纯逻辑单测 / 跨平台类型检查 / 前端构建 / 前端 E2E（mock）
-  # 全在 Ubuntu 上，2 分钟内跑完，不需要任何 Windows 资源
+  # L0 + L1：单测 / 跨平台类型检查 / 前端构建 / 前端 E2E（mock）
+  # 并在 Linux 上交叉编译出 Windows exe（已验证 syso 资源在此链路上可靠）
   # ------------------------------------------------------------------
-  lint-test:
-    name: L0+L1 单测与前端
+  build:
+    name: L0+L1 单测与构建
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -42,7 +42,7 @@ jobs:
       - name: Windows 目标类型检查（不需要 Windows 机器）
         run: GOOS=windows GOARCH=amd64 go vet ./...
 
-      - name: 确认 core 无平台依赖（Linux 上也能 vet）
+      - name: 确认业务层无平台依赖（Linux 下也能 vet）
         run: go vet ./internal/...
 
       - uses: pnpm/action-setup@v4
@@ -55,19 +55,10 @@ jobs:
           cache: pnpm
           cache-dependency-path: frontend/pnpm-lock.yaml
 
-      - name: 前端依赖
+      - name: 前端依赖与构建
         run: |
-          echo "cwd=$(pwd)"
-          ls -la | head -20
-          echo "--- frontend ---"
-          ls -la frontend | head -20
           cd frontend
-          echo "now cwd=$(pwd)"
           pnpm install --no-frozen-lockfile
-
-      - name: 前端构建（tsc 类型检查 + vite 打包）
-        run: |
-          cd frontend
           pnpm run build
 
       - name: 安装 Playwright（仅 Chromium）
@@ -80,6 +71,12 @@ jobs:
           cd frontend
           pnpm run e2e:mock
 
+      - name: 安装 go-winres（Linux 上生成 Windows 资源）
+        run: go install github.com/tc-hib/go-winres@latest
+
+      - name: 交叉编译 Windows exe
+        run: bash scripts/build.sh --skip-frontend --version="0.1.${{ github.run_number }}"
+
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -87,20 +84,21 @@ jobs:
           path: frontend/e2e-report/
           if-no-files-found: warn
 
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-exe
+          path: dist/*.exe
+          if-no-files-found: error
+
   # ------------------------------------------------------------------
-  # L2：真实 Windows 构建 + 真机 WebView2 E2E + 截图
+  # L2：真机 WebView2 E2E（只跑测试，不做构建 —— 窗口期更短）
   # ------------------------------------------------------------------
-  build-windows:
-    name: L2 构建与真机 E2E
+  e2e-windows:
+    name: L2 真机 E2E
     runs-on: windows-latest
-    needs: lint-test
+    needs: build
     steps:
       - uses: actions/checkout@v4
-
-      - uses: actions/setup-go@v5
-        with:
-          go-version: ${{ env.GO_VERSION }}
-          cache: true
 
       - uses: pnpm/action-setup@v4
         with:
@@ -112,26 +110,22 @@ jobs:
           cache: pnpm
           cache-dependency-path: frontend/pnpm-lock.yaml
 
-      - name: 安装 wails3（官方资源生成器，比 go-winres 可靠）
-        run: go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0
+      - name: 取回 Linux 上构建的 exe
+        uses: actions/download-artifact@v4
+        with:
+          name: windows-exe
+          path: dist
 
-      - name: 前端依赖与构建
+      - name: 前端测试依赖
         run: |
           cd frontend
           pnpm install --no-frozen-lockfile
-          pnpm run build
 
-      - name: 编译 Windows exe
-        shell: bash
-        run: bash scripts/build.sh --skip-frontend --version="0.1.${{ github.run_number }}"
-
-      - name: 真机 E2E（Playwright over CDP 驱动 WebView2）
+      - name: 启动应用并跑真机 E2E
         shell: pwsh
         run: |
-          Set-Location frontend
-          pnpm install --no-frozen-lockfile
+          $exe = Resolve-Path "dist\json-toolbox-windows-amd64.exe"
           $env:WINAPP_DEBUG_PORT = "9222"
-          $exe = Resolve-Path "..\dist\json-toolbox-windows-amd64.exe"
           Start-Process -FilePath $exe
           $ready = $false
           for ($i = 0; $i -lt 40; $i++) {
@@ -142,6 +136,7 @@ jobs:
             } catch { }
           }
           if (-not $ready) { throw "WebView2 CDP 端口在 40 秒内未就绪" }
+          Set-Location frontend
           pnpm run e2e:win
 
       - name: 关闭应用
@@ -149,12 +144,9 @@ jobs:
         shell: pwsh
         run: Get-Process -Name json-toolbox -ErrorAction SilentlyContinue | Stop-Process -Force
 
-      - name: 上传 exe 与截图
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: windows-build
-          path: |
-            dist/*.exe
-            frontend/e2e-report/
+          name: windows-e2e-report
+          path: frontend/e2e-report/
           if-no-files-found: warn
