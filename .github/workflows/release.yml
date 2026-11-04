@@ -51,8 +51,8 @@ jobs:
           cache: pnpm
           cache-dependency-path: frontend/pnpm-lock.yaml
 
-      - name: 安装 go-winres
-        run: go install github.com/tc-hib/go-winres@latest
+      - name: 安装 wails3（官方资源生成器）
+        run: go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0
 
       - name: 前端依赖与构建
         run: |
