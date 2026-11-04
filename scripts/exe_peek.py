@@ -23,6 +23,16 @@ import re
 import struct
 import sys
 
+# Windows runner / 中文 Windows 下 stdout 默认是 cp1252 或 gbk，
+# 直接 print 中文会抛 UnicodeEncodeError，这里强制切 UTF-8。
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        enc = (_stream.encoding or "").lower().replace("-", "")
+        if enc not in ("utf8", "utf8mb4"):
+            _stream.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:  # noqa: BLE001
+        pass
+
 try:
     import pefile
 except ImportError:

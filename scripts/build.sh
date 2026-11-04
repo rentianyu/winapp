@@ -8,6 +8,9 @@
 # 产物：dist/json-toolbox-windows-amd64.exe
 set -euo pipefail
 
+# Windows 上 Python 默认用 cp1252/gbk 输出，中文会直接抛 UnicodeEncodeError
+export PYTHONIOENCODING=utf-8
+
 ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 cd "$ROOT"
 
