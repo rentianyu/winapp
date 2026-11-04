@@ -41,7 +41,10 @@ UninstallDisplayIcon={app}\{#MyAppExeName}
 MinVersion=10.0
 
 [Languages]
-Name: "chinesesimplified"; MessagesFile: "compiler:Languages\ChineseSimplified.isl"
+; 中文语言包随仓库分发（Inno Setup 官方安装不包含它），找不到时退回英文
+#if FileExists(AddBackslash(SourcePath) + "languages\ChineseSimplified.isl")
+Name: "chinesesimplified"; MessagesFile: "languages\ChineseSimplified.isl"
+#endif
 Name: "english"; MessagesFile: "compiler:Default.isl"
 
 [Tasks]

@@ -51,8 +51,8 @@ jobs:
           cache: pnpm
           cache-dependency-path: frontend/pnpm-lock.yaml
 
-      - name: 安装 wails3（官方资源生成器）
-        run: go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0
+      - name: 安装 go-winres（生成图标/清单/版本资源）
+        run: go install github.com/tc-hib/go-winres@latest
 
       - name: 前端依赖与构建
         run: |
@@ -86,8 +86,7 @@ jobs:
         shell: bash
         run: |
           cd dist
-          sha256sum *.exe *.zip *.exe > /dev/null 2>&1 || true
-          sha256sum *.exe *.zip > SHA256SUMS.txt || true
+          sha256sum *.exe *.zip > SHA256SUMS.txt
           cat SHA256SUMS.txt
 
       - name: 产物体检（版本号必须对得上）
