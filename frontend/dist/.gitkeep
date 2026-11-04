@@ -1,0 +1,2 @@
+# 占位文件：保证 //go:embed all:frontend/dist 在未构建前端时也能编译。
+# 真实产物由 pnpm run build（或 scripts/build.sh）生成，不会提交。
